@@ -6,6 +6,10 @@ This site is mainly for me to write down some thoughts, post progress on my proj
 
 If that sounds interesting, stick around!
 
+## Games
+
+- [Wordle](/wordle) — a Wordle clone with fancy animations
+
 Cheers,
 
 Prog
