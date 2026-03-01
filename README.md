@@ -9,6 +9,7 @@ If that sounds interesting, stick around!
 ## Games
 
 - [Wordle](/wordle) — a Wordle clone with fancy animations
+- [Word Scramble](/word-scramble) — unscramble words against the clock, 10 rounds, streak bonuses
 
 Cheers,
 
