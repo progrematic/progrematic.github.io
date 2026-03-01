@@ -1,0 +1,756 @@
+---
+layout: default
+title: Word Scramble
+---
+
+<style>
+  #scramble-app {
+    --color-bg:       #1a1a2e;
+    --color-panel:    #16213e;
+    --color-accent:   #e94560;
+    --color-gold:     #f5a623;
+    --color-correct:  #4ade80;
+    --color-tile-src: #0f3460;
+    --color-tile-dst: #1a1a2e;
+    --color-text:     #eaeaea;
+    --color-muted:    #888;
+    --tile-size:      60px;
+
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
+    min-height: 82vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 16px 40px;
+    border-radius: 8px;
+    margin-top: 16px;
+    user-select: none;
+  }
+
+  /* ── Header ── */
+  #scramble-app h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: 0.2rem;
+    text-transform: uppercase;
+    border-bottom: 1px solid #333;
+    width: 100%;
+    text-align: center;
+    padding-bottom: 12px;
+    margin: 0 0 16px;
+  }
+
+  /* ── Score bar ── */
+  #score-bar {
+    display: flex;
+    gap: 24px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .score-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .score-label { font-size: 0.7rem; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.08rem; }
+  .score-value { font-size: 1.4rem; color: var(--color-gold); }
+  #timer-val { color: var(--color-accent); }
+
+  /* ── Category hint ── */
+  #category-box {
+    background: var(--color-panel);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 8px 20px;
+    font-size: 0.8rem;
+    color: var(--color-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1rem;
+    margin-bottom: 10px;
+  }
+  #category-box span { color: var(--color-gold); font-weight: 700; }
+
+  /* ── Hint text ── */
+  #hint-box {
+    min-height: 22px;
+    font-size: 0.85rem;
+    color: var(--color-muted);
+    margin-bottom: 16px;
+    font-style: italic;
+    text-align: center;
+  }
+
+  /* ── Answer slots ── */
+  #answer-area {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .slot {
+    width: var(--tile-size);
+    height: var(--tile-size);
+    border: 2px dashed #444;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, transform 0.1s;
+    position: relative;
+  }
+  .slot.filled {
+    border-color: #4a6fa5;
+    background: var(--color-panel);
+    color: var(--color-text);
+  }
+  .slot.filled:hover {
+    border-color: var(--color-accent);
+    transform: scale(1.05);
+  }
+  .slot.correct-final {
+    border-color: var(--color-correct);
+    background: rgba(74, 222, 128, 0.15);
+    color: var(--color-correct);
+  }
+  .slot.wrong-final {
+    border-color: var(--color-accent);
+    background: rgba(233, 69, 96, 0.12);
+    color: var(--color-accent);
+  }
+
+  /* ── Source tiles ── */
+  #tiles-area {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .tile {
+    width: var(--tile-size);
+    height: var(--tile-size);
+    background: var(--color-tile-src);
+    border: 2px solid #4a6fa5;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: transform 0.1s, background 0.15s, opacity 0.15s;
+  }
+  .tile:hover { transform: translateY(-4px) scale(1.08); background: #1e4080; }
+  .tile.used { opacity: 0; pointer-events: none; }
+
+  /* ── Buttons ── */
+  #btn-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+  .btn {
+    padding: 10px 24px;
+    border: none;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.06rem;
+    transition: transform 0.1s, opacity 0.15s;
+  }
+  .btn:hover { transform: scale(1.04); }
+  .btn:active { transform: scale(0.97); }
+  #btn-check   { background: var(--color-accent); color: #fff; }
+  #btn-clear   { background: #333; color: var(--color-text); }
+  #btn-hint    { background: var(--color-gold); color: #1a1a2e; }
+  #btn-next    { background: var(--color-correct); color: #1a1a2e; display: none; }
+  #btn-shuffle { background: #3a3a6e; color: var(--color-text); }
+
+  /* ── Result message ── */
+  #result-msg {
+    min-height: 36px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 0.05rem;
+    margin-bottom: 10px;
+  }
+
+  /* ── Progress bar ── */
+  #progress-wrap {
+    width: 100%;
+    max-width: 380px;
+    background: #333;
+    border-radius: 20px;
+    height: 8px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  #progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #e94560, #f5a623);
+    border-radius: 20px;
+    transition: width 0.4s ease;
+    width: 0%;
+  }
+  #progress-label {
+    font-size: 0.75rem;
+    color: var(--color-muted);
+    margin-bottom: 16px;
+  }
+
+  /* ── End screen ── */
+  #end-screen {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    text-align: center;
+    animation: fadeIn 0.5s ease;
+  }
+  #end-screen h2 { font-size: 1.8rem; color: var(--color-gold); margin: 0; }
+  #end-screen p  { color: var(--color-muted); margin: 0; font-size: 0.95rem; }
+  #final-score   { font-size: 3rem; font-weight: 700; color: var(--color-correct); }
+  #btn-replay    { background: var(--color-accent); color: #fff; margin-top: 8px; }
+
+  /* ── Animations ── */
+  @keyframes fadeIn  { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes pop     { 0%,100% { transform: scale(1); } 50% { transform: scale(1.18); } }
+  @keyframes shake   { 0%,100% { transform: translateX(0); } 20%,60% { transform: translateX(-5px); } 40%,80% { transform: translateX(5px); } }
+  @keyframes correct { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+
+  .anim-pop   { animation: pop 0.18s ease; }
+  .anim-shake { animation: shake 0.4s ease; }
+  .anim-correct { animation: correct 0.3s ease; }
+
+  /* ── Responsive ── */
+  @media (max-width: 420px) {
+    #scramble-app { --tile-size: 48px; }
+    .tile, .slot { font-size: 1.3rem; border-radius: 6px; }
+    .btn { padding: 9px 16px; font-size: 0.8rem; }
+  }
+</style>
+
+<div id="scramble-app">
+  <h1>Word Scramble</h1>
+
+  <div id="score-bar">
+    <div class="score-item">
+      <span class="score-label">Score</span>
+      <span class="score-value" id="score-val">0</span>
+    </div>
+    <div class="score-item">
+      <span class="score-label">Time</span>
+      <span class="score-value" id="timer-val">30</span>
+    </div>
+    <div class="score-item">
+      <span class="score-label">Round</span>
+      <span class="score-value" id="round-val">1 / 10</span>
+    </div>
+    <div class="score-item">
+      <span class="score-label">Streak</span>
+      <span class="score-value" id="streak-val">0🔥</span>
+    </div>
+  </div>
+
+  <div id="progress-wrap"><div id="progress-fill"></div></div>
+  <div id="progress-label" id="progress-label">Round 1 of 10</div>
+
+  <div id="category-box">Category: <span id="category-text">—</span></div>
+  <div id="hint-box"></div>
+
+  <div id="answer-area"></div>
+  <div id="tiles-area"></div>
+
+  <div id="result-msg"></div>
+
+  <div id="btn-row">
+    <button class="btn" id="btn-clear">Clear</button>
+    <button class="btn" id="btn-shuffle">Shuffle</button>
+    <button class="btn" id="btn-hint">Hint 💡</button>
+    <button class="btn" id="btn-check">Check ✓</button>
+    <button class="btn" id="btn-next">Next →</button>
+  </div>
+
+  <div id="end-screen">
+    <h2>Game Over!</h2>
+    <p>Final Score</p>
+    <div id="final-score">0</div>
+    <p id="end-msg"></p>
+    <button class="btn btn-replay" id="btn-replay">Play Again</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── Word bank with categories and hints ─────────────────────────────────────
+  const WORD_BANK = [
+    // Animals
+    { word: 'ELEPHANT', category: 'Animals', hint: 'Largest land animal' },
+    { word: 'PENGUIN',  category: 'Animals', hint: 'Tuxedo-wearing bird that cannot fly' },
+    { word: 'DOLPHIN',  category: 'Animals', hint: 'Intelligent marine mammal' },
+    { word: 'PANTHER',  category: 'Animals', hint: 'Large dark-coated wild cat' },
+    { word: 'GIRAFFE',  category: 'Animals', hint: 'Tallest living terrestrial animal' },
+    { word: 'CHEETAH',  category: 'Animals', hint: 'Fastest land animal' },
+    { word: 'LOBSTER',  category: 'Animals', hint: 'Clawed crustacean from the sea' },
+    { word: 'GORILLA',  category: 'Animals', hint: 'Great ape, cousin of humans' },
+    { word: 'HAMSTER',  category: 'Animals', hint: 'Popular small furry pet with cheek pouches' },
+    { word: 'OCTOPUS',  category: 'Animals', hint: 'Eight-armed sea creature' },
+    { word: 'VULTURE',  category: 'Animals', hint: 'Scavenging bird of prey' },
+    { word: 'PEACOCK',  category: 'Animals', hint: 'Bird with a stunning fan-shaped tail' },
+
+    // Food & Drink
+    { word: 'SPAGHETTI', category: 'Food',   hint: 'Long thin Italian pasta' },
+    { word: 'AVOCADO',   category: 'Food',   hint: 'Creamy green fruit used in guacamole' },
+    { word: 'BROCCOLI',  category: 'Food',   hint: 'Green tree-shaped vegetable' },
+    { word: 'CINNAMON',  category: 'Food',   hint: 'Warm spice from tree bark' },
+    { word: 'PRETZEL',   category: 'Food',   hint: 'Twisted baked salty snack' },
+    { word: 'LASAGNA',   category: 'Food',   hint: 'Layered Italian oven dish' },
+    { word: 'MUFFIN',    category: 'Food',   hint: 'Small baked cup-shaped cake' },
+    { word: 'WAFFLE',    category: 'Food',   hint: 'Grid-patterned breakfast treat' },
+    { word: 'PICKLE',    category: 'Food',   hint: 'Cucumber preserved in brine' },
+    { word: 'NOODLE',    category: 'Food',   hint: 'Long strip of pasta or dough' },
+    { word: 'CARAMEL',   category: 'Food',   hint: 'Sweet golden-brown sugar confection' },
+    { word: 'BURRITO',   category: 'Food',   hint: 'Wrapped Mexican flour tortilla dish' },
+
+    // Science & Space
+    { word: 'GALAXY',   category: 'Space',  hint: 'Vast system of billions of stars' },
+    { word: 'NEBULA',   category: 'Space',  hint: 'Cloud of gas and dust in space' },
+    { word: 'COMET',    category: 'Space',  hint: 'Icy body with a glowing tail' },
+    { word: 'SATURN',   category: 'Space',  hint: 'Ringed planet, 6th from the Sun' },
+    { word: 'ECLIPSE',  category: 'Space',  hint: 'Sun or Moon blocked by celestial alignment' },
+    { word: 'METEOR',   category: 'Space',  hint: 'Space rock that burns through atmosphere' },
+    { word: 'GRAVITY',  category: 'Science',hint: 'Force that pulls objects toward each other' },
+    { word: 'MAGNET',   category: 'Science',hint: 'Object with north and south poles' },
+    { word: 'OXYGEN',   category: 'Science',hint: 'Element we breathe, symbol O' },
+    { word: 'PROTON',   category: 'Science',hint: 'Positively charged atomic particle' },
+    { word: 'PLASMA',   category: 'Science',hint: 'Fourth state of matter' },
+    { word: 'FOSSIL',   category: 'Science',hint: 'Preserved remains of ancient life' },
+
+    // Geography
+    { word: 'VOLCANO',  category: 'Geography', hint: 'Mountain that erupts lava' },
+    { word: 'GLACIER',  category: 'Geography', hint: 'Slow-moving river of ice' },
+    { word: 'PLATEAU',  category: 'Geography', hint: 'Flat-topped elevated landform' },
+    { word: 'CANYON',   category: 'Geography', hint: 'Deep gorge carved by a river' },
+    { word: 'TUNDRA',   category: 'Geography', hint: 'Vast treeless Arctic plain' },
+    { word: 'JUNGLE',   category: 'Geography', hint: 'Dense tropical forest' },
+    { word: 'LAGOON',   category: 'Geography', hint: 'Shallow coastal body of water' },
+    { word: 'DESERT',   category: 'Geography', hint: 'Arid land with very little rainfall' },
+
+    // Technology
+    { word: 'BROWSER',  category: 'Tech', hint: 'Software for surfing the web' },
+    { word: 'NETWORK',  category: 'Tech', hint: 'Connected system of computers' },
+    { word: 'PYTHON',   category: 'Tech', hint: 'Popular beginner-friendly programming language' },
+    { word: 'ROUTER',   category: 'Tech', hint: 'Device that directs internet traffic' },
+    { word: 'SERVER',   category: 'Tech', hint: 'Computer that provides services to others' },
+    { word: 'PIXEL',    category: 'Tech', hint: 'Smallest unit of a digital image' },
+    { word: 'CURSOR',   category: 'Tech', hint: 'On-screen pointer you move with a mouse' },
+    { word: 'LAPTOP',   category: 'Tech', hint: 'Portable personal computer' },
+
+    // Sports & Games
+    { word: 'TROPHY',   category: 'Sports', hint: 'Award given to the winner' },
+    { word: 'STADIUM',  category: 'Sports', hint: 'Large arena for sporting events' },
+    { word: 'TENNIS',   category: 'Sports', hint: 'Racket sport played across a net' },
+    { word: 'HOCKEY',   category: 'Sports', hint: 'Ice or field sport with a puck or ball' },
+    { word: 'PUZZLE',   category: 'Games',  hint: 'Problem designed to test your ingenuity' },
+    { word: 'RIDDLE',   category: 'Games',  hint: 'Question or statement with a clever answer' },
+    { word: 'ARCADE',   category: 'Games',  hint: 'Hall of coin-operated video games' },
+  ];
+
+  // ── Game settings ───────────────────────────────────────────────────────────
+  const TOTAL_ROUNDS = 10;
+  const BASE_TIME    = 30;   // seconds per round
+  const BASE_POINTS  = 100;  // points for correct answer
+  const HINT_PENALTY = 30;   // points lost for using a hint
+  const TIME_BONUS   = 3;    // extra points per second remaining
+
+  // ── State ───────────────────────────────────────────────────────────────────
+  let queue      = [];
+  let roundIndex = 0;
+  let score      = 0;
+  let streak     = 0;
+  let hintUsed   = false;
+  let answered   = false;
+  let timerSecs  = BASE_TIME;
+  let timerID    = null;
+  let currentWord= '';
+  let slotLetters= []; // letters placed in answer slots (null = empty)
+  let tileLetters= []; // letters in source tiles
+  let tileUsed   = []; // bool per source tile
+
+  // ── DOM refs ────────────────────────────────────────────────────────────────
+  const answerArea   = document.getElementById('answer-area');
+  const tilesArea    = document.getElementById('tiles-area');
+  const scoreEl      = document.getElementById('score-val');
+  const timerEl      = document.getElementById('timer-val');
+  const roundEl      = document.getElementById('round-val');
+  const streakEl     = document.getElementById('streak-val');
+  const categoryEl   = document.getElementById('category-text');
+  const hintBox      = document.getElementById('hint-box');
+  const resultMsg    = document.getElementById('result-msg');
+  const progressFill = document.getElementById('progress-fill');
+  const endScreen    = document.getElementById('end-screen');
+  const finalScore   = document.getElementById('final-score');
+  const endMsg       = document.getElementById('end-msg');
+  const btnCheck     = document.getElementById('btn-check');
+  const btnClear     = document.getElementById('btn-clear');
+  const btnHint      = document.getElementById('btn-hint');
+  const btnNext      = document.getElementById('btn-next');
+  const btnShuffle   = document.getElementById('btn-shuffle');
+  const btnReplay    = document.getElementById('btn-replay');
+
+  // ── Utilities ───────────────────────────────────────────────────────────────
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function pickRounds() {
+    const pool = shuffle(WORD_BANK);
+    // Ensure variety — try to include different categories
+    return pool.slice(0, TOTAL_ROUNDS);
+  }
+
+  function scramble(word) {
+    // Keep shuffling until the result differs from original
+    let s;
+    let attempts = 0;
+    do {
+      s = shuffle(word.split('')).join('');
+      attempts++;
+    } while (s === word && attempts < 20);
+    return s;
+  }
+
+  // ── Timer ───────────────────────────────────────────────────────────────────
+  function startTimer() {
+    clearInterval(timerID);
+    timerSecs = BASE_TIME;
+    updateTimerDisplay();
+    timerID = setInterval(() => {
+      timerSecs--;
+      updateTimerDisplay();
+      if (timerSecs <= 0) {
+        clearInterval(timerID);
+        if (!answered) timeUp();
+      }
+    }, 1000);
+  }
+
+  function updateTimerDisplay() {
+    timerEl.textContent = timerSecs;
+    timerEl.style.color = timerSecs <= 8 ? '#ff4444' : timerSecs <= 15 ? '#f5a623' : '#e94560';
+  }
+
+  function timeUp() {
+    answered = true;
+    streak   = 0;
+    updateStreak();
+    resultMsg.textContent  = `⏰ Time's up! The word was: ${currentWord}`;
+    resultMsg.style.color  = '#e94560';
+    revealAnswer(false);
+    showNextButton();
+  }
+
+  // ── Round setup ─────────────────────────────────────────────────────────────
+  function loadRound(entry) {
+    currentWord = entry.word;
+    hintUsed    = false;
+    answered    = false;
+
+    categoryEl.textContent = entry.category;
+    hintBox.textContent    = '';
+    resultMsg.textContent  = '';
+    resultMsg.style.color  = '';
+
+    btnCheck.style.display   = '';
+    btnClear.style.display   = '';
+    btnHint.style.display    = '';
+    btnShuffle.style.display = '';
+    btnNext.style.display    = 'none';
+    btnHint.disabled         = false;
+
+    const scrambled = scramble(currentWord);
+    tileLetters = scrambled.split('');
+    tileUsed    = new Array(tileLetters.length).fill(false);
+    slotLetters = new Array(currentWord.length).fill(null);
+
+    roundEl.textContent      = `${roundIndex + 1} / ${TOTAL_ROUNDS}`;
+    progressFill.style.width = `${(roundIndex / TOTAL_ROUNDS) * 100}%`;
+
+    renderSlots();
+    renderTiles();
+    startTimer();
+  }
+
+  // ── Render ──────────────────────────────────────────────────────────────────
+  function renderSlots() {
+    answerArea.innerHTML = '';
+    for (let i = 0; i < currentWord.length; i++) {
+      const slot = document.createElement('div');
+      slot.className = 'slot';
+      slot.dataset.idx = i;
+      if (slotLetters[i] !== null) {
+        slot.textContent = slotLetters[i].letter;
+        slot.classList.add('filled');
+        slot.dataset.tileIdx = slotLetters[i].tileIdx;
+      }
+      slot.addEventListener('click', () => onSlotClick(i));
+      answerArea.appendChild(slot);
+    }
+  }
+
+  function renderTiles() {
+    tilesArea.innerHTML = '';
+    for (let i = 0; i < tileLetters.length; i++) {
+      const tile = document.createElement('div');
+      tile.className = 'tile' + (tileUsed[i] ? ' used' : '');
+      tile.textContent = tileLetters[i];
+      tile.dataset.idx = i;
+      tile.addEventListener('click', () => onTileClick(i));
+      tilesArea.appendChild(tile);
+    }
+  }
+
+  // ── Interaction ─────────────────────────────────────────────────────────────
+  function onTileClick(tileIdx) {
+    if (answered || tileUsed[tileIdx]) return;
+
+    // Find next empty slot
+    const emptySlot = slotLetters.indexOf(null);
+    if (emptySlot === -1) return;
+
+    slotLetters[emptySlot] = { letter: tileLetters[tileIdx], tileIdx };
+    tileUsed[tileIdx]      = true;
+
+    renderSlots();
+    renderTiles();
+
+    // Animate the filled slot
+    const slotEl = answerArea.children[emptySlot];
+    slotEl.classList.add('anim-pop');
+    slotEl.addEventListener('animationend', () => slotEl.classList.remove('anim-pop'), { once: true });
+
+    // Auto-submit when all slots filled
+    if (slotLetters.every(s => s !== null)) {
+      setTimeout(checkAnswer, 220);
+    }
+  }
+
+  function onSlotClick(slotIdx) {
+    if (answered || slotLetters[slotIdx] === null) return;
+
+    const { tileIdx } = slotLetters[slotIdx];
+    tileUsed[tileIdx]   = false;
+    slotLetters[slotIdx]= null;
+
+    renderSlots();
+    renderTiles();
+  }
+
+  // ── Keyboard support ────────────────────────────────────────────────────────
+  document.addEventListener('keydown', e => {
+    if (answered) return;
+    if (e.key === 'Backspace') {
+      // Remove last filled slot
+      for (let i = slotLetters.length - 1; i >= 0; i--) {
+        if (slotLetters[i] !== null) {
+          onSlotClick(i);
+          break;
+        }
+      }
+    } else if (e.key === 'Enter') {
+      if (!answered && slotLetters.every(s => s !== null)) checkAnswer();
+    } else if (/^[a-zA-Z]$/.test(e.key)) {
+      const letter = e.key.toUpperCase();
+      // Click first unused tile with that letter
+      for (let i = 0; i < tileLetters.length; i++) {
+        if (!tileUsed[i] && tileLetters[i] === letter) {
+          onTileClick(i);
+          break;
+        }
+      }
+    }
+  });
+
+  // ── Check answer ─────────────────────────────────────────────────────────────
+  function checkAnswer() {
+    if (answered) return;
+    const guess = slotLetters.map(s => s ? s.letter : '').join('');
+    if (guess.length < currentWord.length) {
+      shakeSlots();
+      showResult('Fill all the blanks first!', '#f5a623');
+      return;
+    }
+
+    answered = true;
+    clearInterval(timerID);
+
+    const correct = guess === currentWord;
+
+    if (correct) {
+      let pts = BASE_POINTS + timerSecs * TIME_BONUS;
+      if (hintUsed) pts = Math.max(0, pts - HINT_PENALTY);
+      streak++;
+      if (streak >= 3) pts = Math.floor(pts * 1.5); // streak bonus
+      score += pts;
+      updateScore();
+      updateStreak();
+      const streakNote = streak >= 3 ? ` 🔥 ${streak} streak! +50% bonus!` : '';
+      showResult(`✅ Correct! +${pts} pts${streakNote}`, '#4ade80');
+      revealAnswer(true);
+    } else {
+      streak = 0;
+      updateStreak();
+      showResult(`❌ Wrong! The word was: ${currentWord}`, '#e94560');
+      revealAnswer(false);
+    }
+
+    showNextButton();
+  }
+
+  function revealAnswer(correct) {
+    for (let i = 0; i < currentWord.length; i++) {
+      const slot = answerArea.children[i];
+      slot.textContent = currentWord[i];
+      slot.classList.add('filled');
+      slot.classList.remove('anim-pop');
+      slot.classList.add(correct ? 'correct-final' : 'wrong-final');
+      slot.classList.add('anim-correct');
+    }
+  }
+
+  function showNextButton() {
+    btnCheck.style.display   = 'none';
+    btnClear.style.display   = 'none';
+    btnHint.style.display    = 'none';
+    btnShuffle.style.display = 'none';
+    btnNext.style.display    = '';
+  }
+
+  // ── Hint ──────────────────────────────────────────────────────────────────
+  btnHint.addEventListener('click', () => {
+    if (answered || hintUsed) return;
+    hintUsed = true;
+    btnHint.disabled = true;
+    const entry = queue[roundIndex];
+    hintBox.textContent = `💡 ${entry.hint}  (–${HINT_PENALTY} pts)`;
+    hintBox.style.color = '#f5a623';
+  });
+
+  // ── Clear ─────────────────────────────────────────────────────────────────
+  btnClear.addEventListener('click', () => {
+    if (answered) return;
+    slotLetters = new Array(currentWord.length).fill(null);
+    tileUsed    = new Array(tileLetters.length).fill(false);
+    resultMsg.textContent = '';
+    renderSlots();
+    renderTiles();
+  });
+
+  // ── Shuffle tiles ─────────────────────────────────────────────────────────
+  btnShuffle.addEventListener('click', () => {
+    if (answered) return;
+    // Only shuffle unused tiles
+    const unusedIdxs = tileLetters.map((_, i) => i).filter(i => !tileUsed[i]);
+    const unusedLetters = unusedIdxs.map(i => tileLetters[i]);
+    const shuffledLetters = shuffle(unusedLetters);
+    unusedIdxs.forEach((idx, i) => { tileLetters[idx] = shuffledLetters[i]; });
+    renderTiles();
+  });
+
+  // ── Check button ──────────────────────────────────────────────────────────
+  btnCheck.addEventListener('click', checkAnswer);
+
+  // ── Next round ────────────────────────────────────────────────────────────
+  btnNext.addEventListener('click', advanceRound);
+
+  function advanceRound() {
+    roundIndex++;
+    if (roundIndex >= TOTAL_ROUNDS) {
+      showEndScreen();
+    } else {
+      loadRound(queue[roundIndex]);
+    }
+  }
+
+  // ── UI updates ────────────────────────────────────────────────────────────
+  function updateScore() { scoreEl.textContent = score; }
+  function updateStreak() { streakEl.textContent = streak + (streak >= 3 ? '🔥' : ''); }
+
+  function showResult(msg, color) {
+    resultMsg.textContent = msg;
+    resultMsg.style.color = color;
+  }
+
+  function shakeSlots() {
+    Array.from(answerArea.children).forEach(slot => {
+      slot.classList.remove('anim-shake');
+      void slot.offsetWidth;
+      slot.classList.add('anim-shake');
+      slot.addEventListener('animationend', () => slot.classList.remove('anim-shake'), { once: true });
+    });
+  }
+
+  // ── End screen ────────────────────────────────────────────────────────────
+  function showEndScreen() {
+    clearInterval(timerID);
+    progressFill.style.width = '100%';
+
+    document.getElementById('answer-area').style.display  = 'none';
+    document.getElementById('tiles-area').style.display   = 'none';
+    document.getElementById('btn-row').style.display      = 'none';
+    document.getElementById('result-msg').style.display   = 'none';
+    document.getElementById('category-box').style.display = 'none';
+    document.getElementById('hint-box').style.display     = 'none';
+    document.getElementById('score-bar').style.display    = 'none';
+
+    finalScore.textContent = score;
+    const maxScore = TOTAL_ROUNDS * (BASE_POINTS + BASE_TIME * TIME_BONUS);
+    const pct = score / maxScore;
+    endMsg.textContent =
+      pct >= 0.85 ? '🏆 Word Wizard! Outstanding performance!' :
+      pct >= 0.65 ? '🌟 Great job! You really know your words!' :
+      pct >= 0.40 ? '👍 Good effort — keep practicing!' :
+                    '📚 Room to grow — try again!';
+
+    endScreen.style.display = 'flex';
+  }
+
+  btnReplay.addEventListener('click', () => location.reload());
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  function init() {
+    queue      = pickRounds();
+    roundIndex = 0;
+    score      = 0;
+    streak     = 0;
+    updateScore();
+    updateStreak();
+    loadRound(queue[0]);
+  }
+
+  init();
+
+})();
+</script>
